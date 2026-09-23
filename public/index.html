@@ -83,6 +83,10 @@
       font-weight: 700;
       font-size: 17px;
     }
+    .status-failed {
+      color: #dc2626 !important;
+      font-weight: 700;
+    }
     .spinner {
       display: inline-block;
       width: 16px;
@@ -128,7 +132,7 @@
       const statusMsg = document.getElementById("statusMsg");
 
       btn.disabled = true;
-      btn.innerText = "កំពុងបង្កើត QR Code...";
+      btn.innerText = "កំពុងរៀបចំ QR Code...";
 
       try {
         const response = await fetch("/api/checkout", {
@@ -136,27 +140,29 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             amount: "1.00",
-            currency: "USD",
-            reference: "INV-" + Date.now()
+            currency: "USD"
           })
         });
 
         const data = await response.json();
 
-        if (data.success && data.qr_link) {
+        if (response.ok && data.success && data.qr_link) {
+          // បង្ហាញរូបភាព KHQR
           qrImage.src = data.qr_link;
           qrSection.style.display = "flex";
           btn.style.display = "none";
 
+          // ចាប់ផ្តើម check status រៀងរាល់ 3 វិនាទីម្តង
           startPolling(data.payment_id);
         } else {
-          alert("មានបញ្ហា៖ " + JSON.stringify(data.error));
+          const errMsg = data.error ? JSON.stringify(data.error) : "Server error";
+          alert("បរាជ័យក្នុងការបង្កើត QR: " + errMsg);
           btn.disabled = false;
           btn.innerText = "ទូទាត់ប្រាក់ឥឡូវនេះ (Checkout)";
         }
       } catch (err) {
-        console.error(err);
-        alert("មិនអាចភ្ជាប់ទៅកាន់ Server បានទេ");
+        console.error("Fetch Error:", err);
+        alert("មិនអាចភ្ជាប់ទៅកាន់ Server បានទេ: " + err.message);
         btn.disabled = false;
         btn.innerText = "ទូទាត់ប្រាក់ឥឡូវនេះ (Checkout)";
       }
@@ -167,20 +173,22 @@
 
       pollInterval = setInterval(async () => {
         try {
-          const res = await fetch(`/api/payment-status/${paymentId}`);
+          const res = await fetch(`/api/status?id=${paymentId}`);
+          if (!res.ok) return;
+
           const data = await res.json();
           const status = (data.status || "").toLowerCase();
           const statusMsg = document.getElementById("statusMsg");
 
           if (status === "scanned") {
-            statusMsg.innerHTML = '<span class="spinner"></span> អតិថិជនបានស្កេនរួចហើយ កំពុងដំណើរការ...';
+            statusMsg.innerHTML = '<span class="spinner"></span> បានស្កេនរួចហើយ កំពុងដំណើរការ...';
           } else if (status === "paid" || status === "approved") {
             clearInterval(pollInterval);
             statusMsg.className = "status-text status-paid";
             statusMsg.innerHTML = " ជោគជ័យ! ការទូទាត់ប្រាក់បានសម្រេច។";
           } else if (status === "failed" || status === "expired") {
             clearInterval(pollInterval);
-            statusMsg.style.color = "#dc2626";
+            statusMsg.className = "status-text status-failed";
             statusMsg.innerText = " ការទូទាត់បរាជ័យ ឬផុតកំណត់!";
           }
         } catch (e) {
