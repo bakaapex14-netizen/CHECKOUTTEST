@@ -1,12 +1,12 @@
 export default async function handler(req, res) {
-  // អនុញ្ញាតតែ POST method
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+  // អនុញ្ញាតតែ POST
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method Not Allowed" });
   }
 
   const apiKey = process.env.KHPAY_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: 'KHPAY_API_KEY is not configured in Vercel' });
+    return res.status(500).json({ error: "KHPAY_API_KEY is not set in Vercel Environment Variables" });
   }
 
   const { amount = "1.00", currency = "USD" } = req.body || {};
@@ -22,7 +22,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         amount: String(amount),
         currency: currency,
-        provider: "aba",
+        provider: "aba", // អាចប្រើ "aba" ឬ "bakong"
         reference: orderId
       })
     });
