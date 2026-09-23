@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KHPayNow Checkout</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    body {
+      background-color: #f4f7f6;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 16px;
+    }
+    .checkout-card {
+      background: #ffffff;
+      padding: 32px 24px;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+      width: 100%;
+      max-width: 400px;
+      text-align: center;
+    }
+    .item-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: #1f2937;
+      margin-bottom: 6px;
+    }
+    .price-tag {
+      font-size: 32px;
+      font-weight: 700;
+      color: #0284c7;
+      margin-bottom: 24px;
+    }
+    .btn-checkout {
+      background-color: #e11d48;
+      color: #ffffff;
+      border: none;
+      padding: 14px 20px;
+      font-size: 16px;
+      font-weight: 600;
+      border-radius: 10px;
+      cursor: pointer;
+      width: 100%;
+      transition: all 0.2s ease;
+    }
+    .btn-checkout:hover {
+      background-color: #be123c;
+    }
+    .btn-checkout:disabled {
+      background-color: #9ca3af;
+      cursor: not-allowed;
+    }
+    .qr-container {
+      margin-top: 24px;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+    }
+    .qr-container img {
+      width: 230px;
+      height: 230px;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 8px;
+      background: #ffffff;
+    }
+    .status-text {
+      margin-top: 14px;
+      font-size: 15px;
+      font-weight: 500;
+      color: #4b5563;
+    }
+    .status-paid {
+      color: #16a34a !important;
+      font-weight: 700;
+      font-size: 17px;
+    }
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #e5e7eb;
+      border-top: 2px solid #0284c7;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="checkout-card">
+    <div class="item-title">គម្រោងទូទាត់ប្រាក់ (Demo)</div>
+    <div class="price-tag">$1.00 USD</div>
+
+    <button id="checkoutBtn" class="btn-checkout" onclick="initiateCheckout()">
+      ទូទាត់ប្រាក់ឥឡូវនេះ (Checkout)
+    </button>
+
+    <div id="qrSection" class="qr-container">
+      <img id="qrImage" src="" alt="KHQR Code" />
+      <p id="statusMsg" class="status-text">
+        <span class="spinner"></span> រង់ចាំការស្កេនទូទាត់ប្រាក់...
+      </p>
+    </div>
+  </div>
+
+  <script>
+    let pollInterval = null;
+
+    async function initiateCheckout() {
+      const btn = document.getElementById("checkoutBtn");
+      const qrSection = document.getElementById("qrSection");
+      const qrImage = document.getElementById("qrImage");
+      const statusMsg = document.getElementById("statusMsg");
+
+      btn.disabled = true;
+      btn.innerText = "កំពុងបង្កើត QR Code...";
+
+      try {
+        const response = await fetch("/api/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            amount: "1.00",
+            currency: "USD",
+            reference: "INV-" + Date.now()
+          })
+        });
+
+        const data = await response.json();
+
+        if (data.success && data.qr_link) {
+          qrImage.src = data.qr_link;
+          qrSection.style.display = "flex";
+          btn.style.display = "none";
+
+          startPolling(data.payment_id);
+        } else {
+          alert("មានបញ្ហា៖ " + JSON.stringify(data.error));
+          btn.disabled = false;
+          btn.innerText = "ទូទាត់ប្រាក់ឥឡូវនេះ (Checkout)";
+        }
+      } catch (err) {
+        console.error(err);
+        alert("មិនអាចភ្ជាប់ទៅកាន់ Server បានទេ");
+        btn.disabled = false;
+        btn.innerText = "ទូទាត់ប្រាក់ឥឡូវនេះ (Checkout)";
+      }
+    }
+
+    function startPolling(paymentId) {
+      if (pollInterval) clearInterval(pollInterval);
+
+      pollInterval = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/payment-status/${paymentId}`);
+          const data = await res.json();
+          const status = (data.status || "").toLowerCase();
+          const statusMsg = document.getElementById("statusMsg");
+
+          if (status === "scanned") {
+            statusMsg.innerHTML = '<span class="spinner"></span> អតិថិជនបានស្កេនរួចហើយ កំពុងដំណើរការ...';
+          } else if (status === "paid" || status === "approved") {
+            clearInterval(pollInterval);
+            statusMsg.className = "status-text status-paid";
+            statusMsg.innerHTML = " ជោគជ័យ! ការទូទាត់ប្រាក់បានសម្រេច។";
+          } else if (status === "failed" || status === "expired") {
+            clearInterval(pollInterval);
+            statusMsg.style.color = "#dc2626";
+            statusMsg.innerText = " ការទូទាត់បរាជ័យ ឬផុតកំណត់!";
+          }
+        } catch (e) {
+          console.error("Polling error:", e);
+        }
+      }, 3000);
+    }
+  </script>
+</body>
+</html>
