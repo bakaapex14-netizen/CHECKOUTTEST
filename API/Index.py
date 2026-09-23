@@ -3,12 +3,16 @@ import hmac
 import hashlib
 import requests
 from flask import Flask, request, jsonify
+from dotenv import load_dotenv
+
+# ទាញយកតម្លៃពី file .env ពេល run នៅលើ localhost
+load_dotenv()
 
 app = Flask(__name__)
 
-# ទាញយក Key ពី Environment Variables របស់ Vercel
-KHPAY_API_KEY = os.environ.get("KHPAY_API_KEY", "khpay_YOUR_SECRET_API_KEY")
-KHPAY_WEBHOOK_SECRET = os.environ.get("KHPAY_WEBHOOK_SECRET", "YOUR_WEBHOOK_SECRET")
+# អានតម្លៃពី environment variables
+KHPAY_API_KEY = os.environ.get("KHPAY_API_KEY")
+KHPAY_WEBHOOK_SECRET = os.environ.get("KHPAY_WEBHOOK_SECRET")
 BASE_URL = "https://api.khpaynow.online"
 
 # 1. API បង្កើត Payment
