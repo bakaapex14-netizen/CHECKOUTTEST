@@ -16,7 +16,7 @@ KHPAY_WEBHOOK_SECRET = os.environ.get("KHPAY_WEBHOOK_SECRET", "")
 BASE_URL = "https://api.khpaynow.online"
 
 # 1. API បង្កើត Payment
-@app.route("/API/checkout", methods=["POST"])
+@app.route("/api/checkout", methods=["POST"])
 def checkout():
     data = request.get_json(silent=True) or {}
     amount = data.get("amount", "1.00")
@@ -52,7 +52,7 @@ def checkout():
 
 
 # 2. API ឆែកស្ថានភាព (Polling ពី KHPayNow API ដោយផ្ទាល់)
-@app.route("/API/payment-status/<payment_id>", methods=["GET"])
+@app.route("/api/payment-status/<payment_id>", methods=["GET"])
 def check_status(payment_id):
     headers = {"x-api-key": KHPAY_API_KEY}
     try:
@@ -64,7 +64,7 @@ def check_status(payment_id):
 
 # 3. Webhook Endpoint (ទទួលទាំង /webhook និង /api/webhook)
 @app.route("/webhook", methods=["GET", "POST"])
-@app.route("/API/webhook", methods=["GET", "POST"])
+@app.route("/api/webhook", methods=["GET", "POST"])
 def webhook():
     # ឆ្លើយតប 200 ភ្លាមបើប្រព័ន្ធធ្វើ Ping/Healthcheck តាមរយៈ GET
     if request.method == "GET":
