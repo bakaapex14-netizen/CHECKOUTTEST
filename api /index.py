@@ -91,3 +91,5 @@ def webhook():
         return jsonify({"error": "Invalid signature"}), 401
 
     return jsonify({"received": True}), 200
+
+app = app 
