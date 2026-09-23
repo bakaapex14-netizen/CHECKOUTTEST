@@ -5,23 +5,23 @@ import requests
 from flask import Flask, request, jsonify
 from dotenv import load_dotenv
 
-# ទាញយកតម្លៃពី file .env ពេល run នៅលើ localhost
+# Load key ពី .env ប្រសិនបើ run នៅលើ Localhost
 load_dotenv()
 
 app = Flask(__name__)
 
-# អានតម្លៃពី environment variables
-KHPAY_API_KEY = os.environ.get("KHPAY_API_KEY")
-KHPAY_WEBHOOK_SECRET = os.environ.get("KHPAY_WEBHOOK_SECRET")
+# ទាញយក Key ពី Environment Variables
+KHPAY_API_KEY = os.environ.get("KHPAY_API_KEY", "")
+KHPAY_WEBHOOK_SECRET = os.environ.get("KHPAY_WEBHOOK_SECRET", "")
 BASE_URL = "https://api.khpaynow.online"
 
 # 1. API បង្កើត Payment
 @app.route("/api/checkout", methods=["POST"])
 def checkout():
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     amount = data.get("amount", "1.00")
     currency = data.get("currency", "USD")
-    order_id = data.get("reference", f"order-{int(request.date.timestamp() if request.date else 12345)}")
+    order_id = data.get("reference", f"order-{int(request.date.timestamp() if request.date else 1000)}")
 
     headers = {
         "x-api-key": KHPAY_API_KEY,
@@ -51,7 +51,7 @@ def checkout():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-# 2. API ឆែកស្ថានភាព (Polling ពី KHPayNow API ផ្ទាល់)
+# 2. API ឆែកស្ថានភាព (Polling ពី KHPayNow API ដោយផ្ទាល់)
 @app.route("/api/payment-status/<payment_id>", methods=["GET"])
 def check_status(payment_id):
     headers = {"x-api-key": KHPAY_API_KEY}
@@ -62,12 +62,25 @@ def check_status(payment_id):
         return jsonify({"error": str(e)}), 500
 
 
-# 3. Webhook Endpoint
-@app.route("/webhook", methods=["POST"])
+# 3. Webhook Endpoint (ទទួលទាំង /webhook និង /api/webhook)
+@app.route("/webhook", methods=["GET", "POST"])
+@app.route("/api/webhook", methods=["GET", "POST"])
 def webhook():
+    # ឆ្លើយតប 200 ភ្លាមបើប្រព័ន្ធធ្វើ Ping/Healthcheck តាមរយៈ GET
+    if request.method == "GET":
+        return jsonify({"status": "Webhook endpoint is active and listening"}), 200
+
+    # ផ្នែក POST ពី KHPayNow
     timestamp = request.headers.get("x-webhook-timestamp", "")
     signature = request.headers.get("x-webhook-signature", "")
     raw_body = request.get_data()
+
+    if not signature or not timestamp:
+        return jsonify({"error": "Missing signature or timestamp headers"}), 400
+
+    if not KHPAY_WEBHOOK_SECRET:
+        print("[Warning] KHPAY_WEBHOOK_SECRET is not configured!")
+        return jsonify({"error": "Server webhook secret not configured"}), 500
 
     # ផ្ទៀងផ្ទាត់ HMAC-SHA256 Signature
     message = timestamp.encode("utf-8") + b"." + raw_body
@@ -79,14 +92,17 @@ def webhook():
     expected_sig = f"sha256={expected_hash}"
 
     if not hmac.compare_digest(signature, expected_sig):
+        print(f"[Webhook Error] Invalid signature. Received: {signature}, Expected: {expected_sig}")
         return jsonify({"error": "Invalid signature"}), 401
 
-    payload = request.get_json() or {}
+    payload = request.get_json(silent=True) or {}
     payment_id = payload.get("id")
     status = payload.get("status")
 
-    # ចំណាំ៖ នៅលើ Serverless គ្មាន local memory ជាប់ទេ
-    # ប្រសិនបើចង់រក្សាទុកក្នុង Database ពិតប្រាកដ (Supabase/PostgreSQL/MongoDB) ត្រូវ save នៅត្រង់នេះ
-    print(f"[Webhook Event] Payment: {payment_id}, Status: {status}")
+    print(f"[Webhook Success] Payment ID: {payment_id} is now {status}")
 
+    # ត្រឡប់ 200 OK ភ្លាមៗទៅកាន់ KHPayNow
     return jsonify({"received": True}), 200
+
+if __name__ == "__main__":
+    app.run(port=5000, debug=True)
