@@ -1,15 +1,15 @@
 {
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api/index.py"
+      "source": "/API/(.*)",
+      "destination": "/API/index.py"
     },
     {
       "source": "/webhook",
-      "destination": "/api/index.py"
+      "destination": "/API/index.py"
     },
     {
-      "source": "/((?!api/|webhook).*)",
+      "source": "/((?!API/|webhook).*)",
       "destination": "/public/$1"
     }
   ]
