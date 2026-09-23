@@ -131,7 +131,7 @@
       btn.innerText = "កំពុងបង្កើត QR Code...";
 
       try {
-        const response = await fetch("/api/checkout", {
+        const response = await fetch("/API/checkout", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -167,7 +167,7 @@
 
       pollInterval = setInterval(async () => {
         try {
-          const res = await fetch(`/api/payment-status/${paymentId}`);
+          const res = await fetch(`/API/payment-status/${paymentId}`);
           const data = await res.json();
           const status = (data.status || "").toLowerCase();
           const statusMsg = document.getElementById("statusMsg");
